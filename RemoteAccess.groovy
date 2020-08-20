@@ -54,7 +54,7 @@ String getStaticFileLocation() {
 }
 
 String getGitHackStaticFileLocation() {
-    // githack production (replace tag with correct tag)
+    // githack production (replace "tag" with correct tag)
     //return "https://rawcdn.githack.com/hubitatuser12/hubitatRemoteAccess/tag"
 
     // githack development
@@ -63,17 +63,17 @@ String getGitHackStaticFileLocation() {
 
 def genericURLHandlerGet() {
     if(params.sixthRoute) {
-        return loadContent("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}/${params.fourthRoute}/${params.fifthRoute}/${params.sixthRoute}", request)
+        return customHttpGet("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}/${params.fourthRoute}/${params.fifthRoute}/${params.sixthRoute}", request)
     } else if(params.fifthRoute) {
-        return loadContent("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}/${params.fourthRoute}/${params.fifthRoute}", request)
+        return customHttpGet("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}/${params.fourthRoute}/${params.fifthRoute}", request)
     } else if(params.fourthRoute) {
-        return loadContent("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}/${params.fourthRoute}", request)
+        return customHttpGet("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}/${params.fourthRoute}", request)
     } else if(params.thirdRoute) {
-        return loadContent("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}", request)
+        return customHttpGet("/${params.firstRoute}/${params.secondRoute}/${params.thirdRoute}", request)
     } else if(params.secondRoute) {
-        return loadContent("/${params.firstRoute}/${params.secondRoute}", request)
+        return customHttpGet("/${params.firstRoute}/${params.secondRoute}", request)
     } else {
-        return loadContent("/${params.firstRoute}", request)
+        return customHttpGet("/${params.firstRoute}", request)
     }
 }
 
@@ -168,7 +168,7 @@ def loginPost() {
 def deviceRouteHandlerGet() {
     def queryParams = [:]
     params.each { param ->
-        if(param.key != "secondRound")
+        if(param.key != "secondRoute")
             queryParams.put(param.key, param.value)
     }
     return loadContent("/device/${params.secondRoute}", request, queryParams)
@@ -190,6 +190,88 @@ def deviceRouteHandlerPost() {
     })
 
     return render([contentType:contentType, headers:headers, status:statusCode, data:body])
+}
+
+def customHttpGet(String requestUrl, request, params=null) {
+    def statusCode = 200
+    def body
+    def headers = [:]
+    def respHeaders = [:]
+    def contentType
+    
+    request.headers.each { header ->
+        if(header.key == "Cookie") {
+            def cookieValue = (header.value instanceof String) ? header.value.split(";") : header.value[0].split(";")
+            cookieValue.each { subcookie ->
+                if(subcookie.startsWith("HUBSESSION")) {
+                    headers.put("Cookie", subcookie)
+                }
+            }
+        } else if (header.key == "Accept") {
+            if(header.value instanceof java.util.LinkedList) {
+                header.value[0] = header.value[0].replaceAll("; q=0.01", "")
+                headers.put(header.key, header.value[0])
+            }
+        } else if (header.key == "Accept-encoding") {
+            // do not add
+        } else if (header.key == "Connection") {
+            // do not add
+        } else {
+            headers.put(header.key, header.value)
+        }
+    }
+
+    def myURLString = "http://localhost:8080${requestUrl}"
+    if(params!= null) {
+        myURLString = myURLString + buildParameters(params)
+    }
+    def myUrl = myURLString.toURL()
+
+    def httpCon = myUrl.openConnection()
+    httpCon.setFollowRedirects(false)
+    httpCon.setInstanceFollowRedirects(false)
+    
+    httpCon.setRequestMethod("GET");
+    httpCon.setUseCaches(false);
+    httpCon.setDoInput(true);
+    httpCon.setDoOutput(false);
+    
+    headers.each { key, value ->
+        if(value instanceof LinkedList) {
+            httpCon.setRequestProperty(key, value.join(";"))
+        } else {
+            httpCon.setRequestProperty(key, value)
+        }
+    }
+    
+    int headerField = 1
+    String headerFieldValue = ""
+    String headerFieldKey = ""
+    while(headerFieldKey != null && headerField < 100) {
+        headerFieldValue = httpCon.getHeaderField(headerField)
+        headerFieldKey = httpCon.getHeaderFieldKey(headerField)
+        if(headerFieldValue != null && headerFieldKey != null) {
+            respHeaders.put(headerFieldKey, headerFieldValue)
+        }
+        headerField++
+    }
+    
+    statusCode = httpCon.getResponseCode();
+    
+    if(statusCode != 302) {
+        body = replaceLocations(httpCon.content.text)
+        contentType = httpCon.getContentType();
+    }
+
+    if(statusCode == 302) {
+        // replace Location Header
+        String locationHeader = respHeaders.get("Location")
+        locationHeader = locationHeader.replace("https://localhost:8080", buildRedirectURL())
+        respHeaders.put("Location", locationHeader)
+        return render([status:302, headers:respHeaders])
+    } else {
+        return render([contentType:contentType, headers:respHeaders, status:statusCode, data:body])
+    }
 }
 
 def loadContent(String requestUrl, request, params=null) {
@@ -253,6 +335,23 @@ def loadContent(String requestUrl, request, params=null) {
     } else {
         return render([contentType:contentType, headers:headers, status:statusCode, data:body])
     }
+}
+
+String buildParameters(Map urlParameters) {
+    StringBuilder query = new StringBuilder("?");
+    
+    urlParameters.eachWithIndex { entry, index ->
+        if(index > 0) {
+            query.append("&")
+        }
+        try {
+            query.append(entry.key).append("=").append(URLEncoder.encode(entry.value, "UTF-8"))
+        } catch (UnsupportedEncodingException ex) {
+            log.warn "Problem with encoding"
+        }
+    }
+    
+    return query.toString()
 }
 
 def cssGet() {
@@ -330,3 +429,19 @@ void updated() {
 void uninstalled() {
     log.trace "uninstalled"
 }
+
+
+
+void customHttpPost(String requestURLString, String body) {
+    // until Hubitat fixes redirect handling, we have to do this ourselves.
+    def myUrl = requestURLString.toURL()
+    def httpCon = myUrl.openConnection()
+    
+//HttpURLConnection httpCon = (HttpURLConnection) urlObj.openConnection();
+ 
+    httpCon.setDoOutput(true);
+    httpCon.setRequestMethod("POST");
+ 
+    httpCon.getOutputStream() << body;
+}
+
