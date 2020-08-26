@@ -154,6 +154,9 @@ Map handleRedirects(respHeaders) {
     } else {
         log.error "Unknown Location redirect: ${respHeaders.get('Location')}"
     }
+    if(respHeaders.get("Location") == "/") {
+        respHeaders.put("Location", replaceLocation("/", "/", "/root"))
+    }
 
     return respHeaders
 }
@@ -270,6 +273,7 @@ def replaceLocations(String body) {
     body = replaceLocation(body, "/hub/messages")
     body = replaceLocation(body, "/device/")
     body = replaceLocation(body, "/installedapp/")
+    body = replaceLocation(body, "/login")
     
     return body
 }
@@ -392,3 +396,4 @@ String buildParameters(Map urlParameters) {
     
     return query.toString()
 }
+
