@@ -13,8 +13,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
- * Version 0.5
+ * Version 0.6
  *
+ * 26/8/2020 - 0.6: add check for oauth
  * 26/8/2020 - 0.5: Fix root link
  * 26/8/2020 - 0.4: Move css and js to github, add import url link, update preferences
  * 26/8/2020 - 0.3: Fix links on main page menu
@@ -32,15 +33,19 @@ definition(
 )
 
 preferences {
-        section() {
-            paragraph "Allowing remote access could compromise your system. Keep the link secure. Use at your own risk"
-            if(app.getInstallationState() == "INCOMPLETE"){
-                paragraph "Click \"Done\" and reload."
+    section() {
+        paragraph "Allowing remote access could compromise your system. Keep the link secure. Use at your own risk"
+        if(app.getInstallationState() == "INCOMPLETE"){
+            paragraph "Click \"Done\" and reload."
+         } else {
+            if(!state.accessToken) {
+                paragraph "OAuth is not enabled. Remove this app from \"Apps\", enable OAuth for \"Remote Access\" in Apps Code, and re-add the user app."
             } else {
                 paragraph "${buildRedirectURL()}/root"
                 paragraph "<a href=\"${buildRedirectURL()}/root\" target=\"_blank\">Open remote access</a>"
             }
         }
+    }
 }
 
 mappings {
