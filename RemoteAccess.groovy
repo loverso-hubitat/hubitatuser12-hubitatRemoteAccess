@@ -13,7 +13,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
- * Version 0.2
+ * Version 0.3
+ *
+ * 26/8/2020 - Fix links on main page menu
  */
 definition(
 	name: "Remote Access",
@@ -273,10 +275,14 @@ def replaceLocations(String body) {
     body = body.replaceAll("/ui2/css/", "${buildRedirectURL()}/css/")
 
     body = replaceLocation(body, "/ui2/js/")
-    body = replaceLocation(body, "/hub/messages")
+    body = replaceLocation(body, "/hub/")
+    body = replaceLocation(body, "/location/")
     body = replaceLocation(body, "/device/")
+    body = replaceLocation(body, "/driver/")
+    body = replaceLocation(body, "/app/")
     body = replaceLocation(body, "/installedapp/")
     body = replaceLocation(body, "/login")
+    body = replaceLocation(body, "/events")
     
     return body
 }
@@ -399,4 +405,3 @@ String buildParameters(Map urlParameters) {
     
     return query.toString()
 }
-
