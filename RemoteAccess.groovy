@@ -13,10 +13,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
- * Version 0.4
+ * Version 0.5
  *
- * 26/8/2020 - 0.3: Fix links on main page menu
+ * 26/8/2020 - 0.5: Fix root link
  * 26/8/2020 - 0.4: Move css and js to github, add import url link, update preferences
+ * 26/8/2020 - 0.3: Fix links on main page menu
  */
 definition(
 	name: "Remote Access",
@@ -36,8 +37,8 @@ preferences {
             if(app.getInstallationState() == "INCOMPLETE"){
                 paragraph "Click \"Done\" and reload."
             } else {
-                paragraph "${buildRedirectURL()}"
-                paragraph "<a href=\"${buildRedirectURL()}/rootbuildRedirectURL()\" target=\"_blank\">Open remote access</a>"
+                paragraph "${buildRedirectURL()}/root"
+                paragraph "<a href=\"${buildRedirectURL()}/root\" target=\"_blank\">Open remote access</a>"
             }
         }
 }
