@@ -13,9 +13,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
- * Version 0.3
+ * Version 0.4
  *
- * 26/8/2020 - Fix links on main page menu
+ * 26/8/2020 - 0.3: Fix links on main page menu
+ * 26/8/2020 - 0.4: Move css and js to github, add import url link, update preferences
  */
 definition(
 	name: "Remote Access",
@@ -25,19 +26,27 @@ definition(
 	category: "General",
 	iconUrl:   "",
 	iconX2Url: "",
-	iconX3Url: ""
+	iconX3Url: "",
+    importUrl: "https://raw.githubusercontent.com/hubitatuser12/hubitatRemoteAccess/master/RemoteAccess.groovy"
 )
 
 preferences {
-    section("Url") {
-        paragraph "<a href='${buildRedirectURL()}/root' target='_blank'>Main Page</a>"
-    }
+        section() {
+            paragraph "Allowing remote access could compromise your system. Keep the link secure. Use at your own risk"
+            if(app.getInstallationState() == "INCOMPLETE"){
+                paragraph "Click \"Done\" and reload."
+            } else {
+                paragraph "${buildRedirectURL()}"
+                paragraph "<a href=\"${buildRedirectURL()}/rootbuildRedirectURL()\" target=\"_blank\">Open remote access</a>"
+            }
+        }
 }
 
 mappings {
     path("/root") { action: [GET: "rootGet"] }
     path("/css/:file") { action: [GET: "cssGet"] }
     path("/css/:subdir/:file") { action: [GET: "cssGet"] }
+    path("/js/:file") { action: [GET: "jsGet"] }
     // this order is important for matching (Generic must be at the end)
     path("/:firstRoute") { action: [GET: "genericURLHandlerGet", POST: "genericURLHandlerPost"] }
     path("/:firstRoute/:secondRoute") { action: [GET: "genericURLHandlerGet", POST: "genericURLHandlerPost"] }
@@ -238,31 +247,18 @@ Map populateHeaders(headers) {
 }
 
 
-def cssGet() {
-    if(params.file == "material.min.css") {
-        // redirect
-        return render([status:302, headers:[Location:"${getGitHackStaticFileLocation()}/css/material.min.css"]])
-    }
+def jsGet() {
+    // redirect
+    return render([status:302, headers:[Location:"${getGitHackStaticFileLocation()}/js/${params.file}"]])
+}
 
+def cssGet() {
     if(params.subdir == "fonts") {
         return render([status:302, headers:[Location:"${getStaticFileLocation()}/css/fonts/${params.file}"]])
     }
 
-    def requestUrl
-    if(params.subdir) {
-        requestUrl = "/ui2/css/${subdir}/${params.file}"
-    } else {
-        requestUrl = "/ui2/css/${params.file}"
-    }
-    
-    def content = loadContent(requestUrl, request)
-    
-    if(content.data.contains("sort_")) {
-        content.data = content.data.replaceAll("../images/sort_both.png", "${getStaticFileLocation()}/images/sort_both.png")
-        content.data = content.data.replaceAll("../images/sort_asc.png", "${getStaticFileLocation()}/images/sort_asc.png")
-        content.data = content.data.replaceAll("../images/sort_desc.png", "${getStaticFileLocation()}/images/sort_desc.png")
-    }
-    return content
+    // redirect
+    return render([status:302, headers:[Location:"${getGitHackStaticFileLocation()}/css/material.min.css"]])
 }
 
 def rootGet() {
@@ -272,9 +268,10 @@ def rootGet() {
 def replaceLocations(String body) {
     body = body.replaceAll("/ui2/css/fonts/", "${getStaticFileLocation()}/css/fonts/")
     body = body.replaceAll("/ui2/images/", "${getStaticFileLocation()}/images/")
-    body = body.replaceAll("/ui2/css/", "${buildRedirectURL()}/css/")
+    body = body.replaceAll("/ui2/css/", "${getGitHackStaticFileLocation()}/css/")
+    body = body.replaceAll("/ui2/js/", "${getGitHackStaticFileLocation()}/js/")
 
-    body = replaceLocation(body, "/ui2/js/")
+    //body = replaceLocation(body, "/ui2/js/")
     body = replaceLocation(body, "/hub/")
     body = replaceLocation(body, "/location/")
     body = replaceLocation(body, "/device/")
