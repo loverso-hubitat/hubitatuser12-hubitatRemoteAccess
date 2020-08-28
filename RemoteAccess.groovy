@@ -13,8 +13,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
- * Version 0.6
+ * Version 0.8
  *
+ * 28/8/2020 - 0.8: create custom device list page to avoid going over data limit, add logging if pages do go over limit
+ * 26/8/2020 - 0.7: fix dashboards link (still a known issue with loading the dashboards however)
  * 26/8/2020 - 0.6: add check for oauth
  * 26/8/2020 - 0.5: Fix root link
  * 26/8/2020 - 0.4: Move css and js to github, add import url link, update preferences
@@ -148,15 +150,7 @@ Map genericURLHandlerPost() {
             }
         }
         
-        if(response.data instanceof java.io.ByteArrayInputStream) {
-            // to do: store in github and redirect
-            body = replaceLocations(new String(response.data.bytes, "UTF-8"))
-        } else if (response.data instanceof String) {
-            body = replaceLocations(response.data)
-        } else if (response.data != null) {
-            body = replaceLocations(response.data.text)
-        }
-        
+        body = processReponseData(statusCode, requestUrl, response.data)
     })
 
     // handle redirects
@@ -181,7 +175,6 @@ Map handleRedirects(respHeaders) {
     return respHeaders
 }
 
-
 def loadContent(String requestUrl, request, params=null) {
     def statusCode = 200
     def body
@@ -194,16 +187,7 @@ def loadContent(String requestUrl, request, params=null) {
     customHttpGet(httpGetParams, { response ->
         statusCode = response.status
         contentType = response.contentType
-
-        if(response.data instanceof java.io.ByteArrayInputStream) {
-            // TODO: store in github and redirect
-            body = replaceLocations(new String(response.data.bytes, "UTF-8"))
-        } else if (response.data instanceof String) {
-            body = replaceLocations(response.data)
-        } else if (response.data != null) {
-            body = replaceLocations(response.data.text)
-        }
-
+        
         // extra code for our customHttpGet, can be removed once hubitat fixes httpGet
         if(response instanceof Map) {
             response.headers.each { header ->
@@ -214,14 +198,50 @@ def loadContent(String requestUrl, request, params=null) {
                 respHeaders.put(header.name, header.value) 
             }
         }
+        
+        body = processReponseData(statusCode, requestUrl, response.data)
     })
 
     // handle redirects
     if(statusCode == 302) {
         respHeaders = handleRedirects(respHeaders)
     }
+    
+    if(body.size() > 120500) {
+        log.warn "body is too long! ${body.size()} for url ${requestUrl}"
+        body = "Body too large, need to make it smaller, please contact developer with page information."
+    }
 
     return render([contentType:contentType, headers:respHeaders, status:statusCode, data:body])
+}
+
+String processReponseData(int statusCode, String requestUrl, def data) {
+    String dataStr
+    if(data instanceof java.io.ByteArrayInputStream) {
+        // TODO: store in github and redirect
+        //body = replaceLocations(new String(data.bytes, "UTF-8"))
+        dataStr = new String(data.bytes, "UTF-8")
+    } else if (data instanceof String) {
+        //body = replaceLocations(data)
+        dataStr = data
+    } else if (data != null) {
+        //body = replaceLocations(data.text)
+        dataStr = data.text
+    }
+    
+    if(statusCode == 200 && requestUrl == "/device/list") {
+        def newBody = "<html><body><a href=\"${buildRedirectURL()}/root\">Back to main menu</a><br><br>"
+        dataStr.findAll("(?ms)<div class=\"deviceLink\".*?</a>.*?</div>") {
+            newBody += it.replaceAll("/device/edit", "../device/edit")
+        }
+        newBody += "</body></html>"
+        dataStr = newBody
+        
+        return dataStr
+    } else {
+        return replaceLocations(dataStr)
+    }
+
 }
 
 Map populateHeaders(headers) {
@@ -252,7 +272,6 @@ Map populateHeaders(headers) {
     return reqheaders
 }
 
-
 def jsGet() {
     // redirect
     return render([status:302, headers:[Location:"${getGitHackStaticFileLocation()}/js/${params.file}"]])
@@ -277,7 +296,8 @@ def replaceLocations(String body) {
     body = body.replaceAll("/ui2/css/", "${getGitHackStaticFileLocation()}/css/")
     body = body.replaceAll("/ui2/js/", "${getGitHackStaticFileLocation()}/js/")
 
-    //body = replaceLocation(body, "/ui2/js/")
+    body = replaceLocation(body, "/dashboards")
+    body = replaceLocation(body, "/apps/api")
     body = replaceLocation(body, "/hub/")
     body = replaceLocation(body, "/location/")
     body = replaceLocation(body, "/device/")
