@@ -232,11 +232,11 @@ String processReponseData(int statusCode, String requestUrl, def data) {
     if(statusCode == 200 && requestUrl == "/device/list") {
         def newBody = "<html><body><a href=\"${buildRedirectURL()}/root\">Back to main menu</a><br><br>"
         dataStr.findAll("(?ms)<div class=\"deviceLink\".*?</a>.*?</div>") {
-            newBody += it.replaceAll("/device/edit", "../device/edit")
+            newBody += it.replaceAll("/device/edit", "../device/edit").replaceAll("    ", "")
         }
         newBody += "</body></html>"
         dataStr = newBody
-        
+
         return dataStr
     } else {
         return replaceLocations(dataStr)
