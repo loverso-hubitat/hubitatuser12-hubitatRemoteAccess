@@ -13,14 +13,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  *
- * Version 0.8
+ * Version 0.9
  *
- * 28/8/2020 - 0.8: create custom device list page to avoid going over data limit, add logging if pages do go over limit
- * 26/8/2020 - 0.7: fix dashboards link (still a known issue with loading the dashboards however)
- * 26/8/2020 - 0.6: add check for oauth
- * 26/8/2020 - 0.5: Fix root link
- * 26/8/2020 - 0.4: Move css and js to github, add import url link, update preferences
- * 26/8/2020 - 0.3: Fix links on main page menu
+ * 02/09/2020 - 0.9: create stripped down app list page, add device type to device list page.
+ * 28/08/2020 - 0.8: create custom device list page to avoid going over data limit, add logging if pages do go over limit
+ * 26/08/2020 - 0.7: fix dashboards link (still a known issue with loading the dashboards however)
+ * 26/08/2020 - 0.6: add check for oauth
+ * 26/08/2020 - 0.5: Fix root link
+ * 26/08/2020 - 0.4: Move css and js to github, add import url link, update preferences
+ * 26/08/2020 - 0.3: Fix links on main page menu
  */
 definition(
 	name: "Remote Access",
@@ -230,18 +231,73 @@ String processReponseData(int statusCode, String requestUrl, def data) {
     }
     
     if(statusCode == 200 && requestUrl == "/device/list") {
-        def newBody = "<html><body><a href=\"${buildRedirectURL()}/root\">Back to main menu</a><br><br>"
-        dataStr.findAll("(?ms)<div class=\"deviceLink\".*?</a>.*?</div>") {
-            newBody += it.replaceAll("/device/edit", "../device/edit").replaceAll("    ", "")
-        }
-        newBody += "</body></html>"
-        dataStr = newBody
-
-        return dataStr
+        return buildDeviceList(dataStr)
+    } else if (statusCode == 200 && requestUrl == "/installedapp/list"){
+        return buildInstalledAppList(dataStr)
     } else {
         return replaceLocations(dataStr)
     }
+}
 
+def buildDeviceList(dataStr) {
+    def newBody = "<html>"
+    newBody += "<head>\n<style>\ntable, th, td {\n   border: 1px solid black;\n }\n</style>\n</head>"
+    newBody += "<body><a href=\"${buildRedirectURL()}/root\">Back to main menu</a><br><br>"
+    newBody += "<table><tbody>"
+    
+    dataStr.findAll("(?ms)<tr.*?</tr>") { tr ->
+
+        def tds = tr.findAll("(?ms)<td.*?</td>") 
+        newBody += "<tr>"
+        if(!tds) {
+            newBody += "<th>Label(Name)</th><th>Type</th>"
+        } else {
+            newBody += tds[1] 
+            newBody += tds[2]
+        }
+        newBody += "</tr>"
+    }
+    
+
+    newBody += "</tbody></table>"
+    newBody += "</body></html>"
+
+    newBody = newBody.replaceAll("/device/edit", "../device/edit")
+    newBody = newBody.replaceAll("style=\".*?\"", "")
+    newBody = newBody.replaceAll("class=\".*?\"", "")
+    newBody = newBody.replaceAll("    ", "")
+    
+    return newBody
+}
+
+def buildInstalledAppList(dataStr) {
+    def newBody = "<html>"
+    newBody += "<head>\n<style>\ntable, th, td {\n   border: 1px solid black;\n }\n</style>\n</head>"
+    newBody += "<body><a href=\"${buildRedirectURL()}/root\">Back to main menu</a><br><br>"
+    newBody += "<table><tbody>"
+
+    dataStr.findAll("(?ms)<tr.*?</tr>") { tr ->
+        newBody += "<tr><td>"
+        tr.findAll("href=\"/installedapp/status/[0-9]*\"") { href ->
+            newBody += "<div><a ${href} >Status</a></div>"
+        }
+        newBody += "</td><td>" 
+        tr.findAll("<a.*?href=\"/installedapp/configure/[0-9]*\".*?</a>") { href ->
+            newBody += "<div>${href}</div>"
+        }
+        newBody += "</td><td>" 
+        tr.findAll("<div.*?data-id=.*?(?ms).*</div>") { div ->
+            newBody += "${div}"
+        }
+        newBody += "</td></tr>"
+    }
+    newBody += "</tbody></table></body></html>"
+    newBody = newBody.replaceAll("/installedapp/configure/", "../installedapp/configure/")
+    newBody = newBody.replaceAll("/installedapp/status/", "../installedapp/status/")
+    newBody = newBody.replaceAll("style=\".*?\"", "")
+    newBody = newBody.replaceAll("class=\".*?\"", "")
+    newBody = newBody.replaceAll("    ", "")
+    return newBody
 }
 
 Map populateHeaders(headers) {
